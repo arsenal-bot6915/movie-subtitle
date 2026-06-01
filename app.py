@@ -201,7 +201,7 @@ def main() -> None:
             "模型选择", options=AVAILABLE_MODELS, index=0
         )
         max_workers = st.slider(
-            "并发请求数（提高速度）", min_value=1, max_value=10, value=3
+            "并发请求数（提高速度）", min_value=1, max_value=10, value=6
         )
         timeout_seconds = st.slider(
             "请求超时（秒）", min_value=30, max_value=300, value=120, step=10
@@ -595,6 +595,8 @@ def main() -> None:
                         for task in pending_tasks
                     }
 
+                    pending_count = 0
+
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             task, translated_segment = future.result()
@@ -623,10 +625,13 @@ def main() -> None:
                                 else:
                                     st.session_state["translated_dict"][idx] = translated_segment
 
-                            save_progress_to_local(
-                                st.session_state["cache_file"],
-                                st.session_state["translated_dict"],
-                            )
+                            pending_count += 1
+                            if pending_count >= 5:
+                                save_progress_to_local(
+                                    st.session_state["cache_file"],
+                                    st.session_state["translated_dict"],
+                                )
+                                pending_count = 0
 
                             completed_batches += 1
                             progress_val = min(
@@ -647,8 +652,19 @@ def main() -> None:
                             status.error(
                                 f"⚠️ 发生严重错误（网络或API崩溃），已停止。错误详情：{err}"
                             )
+                            if pending_count > 0:
+                                save_progress_to_local(
+                                    st.session_state["cache_file"],
+                                    st.session_state["translated_dict"],
+                                )
                             executor.shutdown(wait=False, cancel_futures=True)
                             break
+
+                    if pending_count > 0:
+                        save_progress_to_local(
+                            st.session_state["cache_file"],
+                            st.session_state["translated_dict"],
+                        )
 
                 if failed:
                     st.warning(

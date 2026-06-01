@@ -78,7 +78,11 @@ def extract_and_validate_json(
         translated text is empty, or the text has no Chinese characters despite
         the original containing ASCII letters.
     """
-    match = re.search(r"\{[\s\S]*\}", text)
+    last_brace = text.rfind("{")
+    if last_brace == -1:
+        raise ValueError("未能从模型返回内容中提取到有效的 JSON 格式数据。")
+
+    match = re.search(r"\{[\s\S]*\}", text[last_brace:])
     if not match:
         raise ValueError("未能从模型返回内容中提取到有效的 JSON 格式数据。")
 
@@ -107,7 +111,7 @@ def extract_and_validate_json(
 
             orig_lines = src.text.strip().split("\n")
             trans_lines = trans_text.split("\n")
-            needs_zh_translation = bool(re.search(r"[a-zA-Z]", src.text))
+            needs_zh_translation = bool(re.search(r"[a-zA-Z0-9]", src.text))
 
             if not trans_text:
                 missing_ids.append(src.index)
